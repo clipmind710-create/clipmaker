@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Highlight Clip Maker</title>
+  <meta name="description" content="Video ka link daalo, sabse zyada dekha gaya hissa caption ke saath chhote clip me paao.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <span class="logo">Highlight Clip Maker</span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Video ka sabse zyada dekha gaya hissa, chhote clip me</h1>
+      <p>Link daalo. Hum sabse popular scene dhundh kar clip bana denge, bolne wale shabdon ke caption ke saath.</p>
+    </section>
+
+    <form id="form" class="card" novalidate>
+      <label for="url">Video ka link</label>
+      <input id="url" type="url" inputmode="url" autocomplete="off"
+             placeholder="https://www.youtube.com/watch?v=..." required>
+
+      <div class="row">
+        <div>
+          <label for="len">Clip ki lambai (second)</label>
+          <input id="len" type="number" min="10" max="120" value="45">
+        </div>
+      </div>
+
+      <label class="check"><input id="captions" type="checkbox" checked>
+        <span>Bolne wale shabdon ka caption lagao</span></label>
+      <label class="check"><input id="vertical" type="checkbox">
+        <span>Vertical 9:16 banao (Reels / Shorts ke liye)</span></label>
+
+      <button id="go" type="submit">Clip banao</button>
+      <p id="err" class="err" role="alert"></p>
+    </form>
+
+    <section id="progress" class="card" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="msg" class="msg">Kaam shuru ho raha hai...</p>
+      <p class="hint">Clip banne me 1 se 3 minute lag sakte hain. Page band mat karna.</p>
+    </section>
+
+    <section id="result" class="card" hidden>
+      <h2>Clip taiyar hai</h2>
+      <p id="note" class="hint"></p>
+      <video id="player" controls playsinline></video>
+      <div class="actions">
+        <a id="dl-video" class="btn" download>Video download karo</a>
+        <a id="dl-srt" class="btn ghost" download hidden>Caption file (.srt)</a>
+      </div>
+    </section>
+
+    <section class="info">
+      <h2>Kaise kaam karta hai</h2>
+      <ol>
+        <li>YouTube ke "Most replayed" graph se sabse zyada dekha gaya hissa chuna jata hai.</li>
+        <li>Graph na ho to awaaz sabse tez wala hissa chuna jata hai.</li>
+        <li>Clip kaat kar uske bolne wale shabd sun kar video par caption likhe jate hain.</li>
+      </ol>
+      <p id="actions-tip" class="hint" hidden>Server nahi hai? <a id="actions-link" target="_blank" rel="noopener">GitHub Actions</a> se bhi clip ban sakti hai ("Run workflow" dabao, link daalo).</p>
+      <p class="hint">Live chal rahi stream ka clip tab banta hai jab live khatam ho jaye. Doosron ke video ka clip upload karne se pehle unki permission ya credit ka dhyan rakho.</p>
+    </section>
+  </main>
+
+  <footer>Clips 1 ghante baad apne aap delete ho jaate hain.</footer>
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
