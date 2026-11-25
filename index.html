@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Highlight Clip Maker (sirf HTML)</title>
+<meta name="description" content="Apna video chuno, sabse zordar hissa caption ke saath chhote clip me paao. Sab kuch browser me hota hai.">
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --text: #1f1f1d; --muted: #6b6a66;
+    --line: #dcdad3; --accent: #1f1f1d; --accent-text: #ffffff; --bar: #c9c7be;
+    --err: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --card: #201f1e; --text: #ecebe6; --muted: #a09f99;
+      --line: #34332f; --accent: #ecebe6; --accent-text: #161615; --bar: #4a4944;
+      --err: #f2a29b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.6;
+         font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
+  .top { padding: 16px 20px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  main { max-width: 640px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 26px; line-height: 1.3; margin: 0 0 10px; }
+  h2 { font-size: 18px; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+          padding: 18px; margin-bottom: 16px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  input[type=file], input[type=number], select { width: 100%; padding: 10px 12px; font-size: 16px;
+          color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 8px; }
+  input[type=range] { width: 100%; }
+  .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .check { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 15px;
+           margin-top: 14px; cursor: pointer; }
+  .check input { width: 18px; height: 18px; }
+  button, .btn { display: inline-block; padding: 12px 18px; font-size: 16px; text-align: center;
+          text-decoration: none; color: var(--accent-text); background: var(--accent);
+          border: 1px solid var(--accent); border-radius: 8px; cursor: pointer; }
+  .btn.ghost { color: var(--text); background: transparent; border-color: var(--line); }
+  button.full { width: 100%; margin-top: 18px; }
+  button:disabled { opacity: .6; cursor: wait; }
+  input:focus-visible, select:focus-visible, button:focus-visible, .btn:focus-visible {
+    outline: 2px solid var(--text); outline-offset: 2px; }
+  .hint { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+  .err { color: var(--err); margin: 12px 0 0; min-height: 1.4em; }
+  canvas#graph { width: 100%; height: 110px; display: block; margin: 8px 0 4px; }
+  canvas.rec { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 8px;
+               background: #000; margin-top: 12px; }
+  video { width: 100%; max-height: 50vh; border-radius: 8px; background: #000; margin-top: 12px; }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin-top: 10px; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  [hidden] { display: none !important; }
+  .info ol { padding-left: 20px; color: var(--muted); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16px 28px; }
+</style>
+</head>
+<body>
+<header class="top">Highlight Clip Maker</header>
+
+<main>
+  <h1>Video ka sabse zordar hissa, caption ke saath</h1>
+  <p class="sub">Apna video chuno. Sab kuch tumhare browser me hota hai, video kahin upload nahi hota.</p>
+
+  <section class="card">
+    <label for="file">Video file chuno (MP4 sabse behtar)</label>
+    <input id="file" type="file" accept="video/*">
+    <p id="fileinfo" class="hint"></p>
+
+    <div class="row">
+      <div>
+        <label for="len">Clip ki lambai (second)</label>
+        <input id="len" type="number" min="5" max="120" value="30">
+      </div>
+      <div>
+        <label for="lang">Caption ki bhasha</label>
+        <select id="lang">
+          <option value="">Apne aap pehchano</option>
+          <option value="hindi">Hindi</option>
+          <option value="english">English</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="model">Caption ka model</label>
+    <select id="model">
+      <option value="tiny">Tez (kam sahi, chhota download)</option>
+      <option value="base" selected>Madhyam (theek-thaak)</option>
+      <option value="small">Behtar (bada download, dheema)</option>
+    </select>
+
+    <label class="check"><input id="captions" type="checkbox" checked><span>Bolne wale shabdon ka caption lagao</span></label>
+    <label class="check"><input id="vertical" type="checkbox"><span>Vertical 9:16 (Reels / Shorts)</span></label>
+
+    <button id="analyze" class="full" type="button">Sabse zordar hissa dhundo</button>
+    <p id="err" class="err" role="alert"></p>
+  </section>
+
+  <section id="pick" class="card" hidden>
+    <h2>Chuna gaya hissa</h2>
+    <p id="pickinfo" class="hint"></p>
+    <canvas id="graph" aria-label="Har second ki awaaz ka graph"></canvas>
+    <label for="start">Hissa aage-peeche karo</label>
+    <input id="start" type="range" min="0" max="0" value="0" step="1">
+    <div id="stage"></div>
+    <button id="make" class="full" type="button">Clip banao</button>
+    <p class="hint">Clip asli speed se record hoti hai, to 30 second ki clip me lagbhag 30 second lagenge. Tab khula rakho.</p>
+  </section>
+
+  <section id="progress" class="card" hidden>
+    <h2 id="msg">Kaam shuru ho raha hai...</h2>
+    <div class="bar"><span id="barfill"></span></div>
+    <div id="recbox"></div>
+  </section>
+
+  <section id="result" class="card" hidden>
+    <h2>Clip taiyar hai</h2>
+    <p id="note" class="hint"></p>
+    <video id="outvideo" controls playsinline></video>
+    <div class="actions">
+      <a id="dl-video" class="btn">Video download karo</a>
+      <a id="dl-srt" class="btn ghost" hidden>Caption file (.srt)</a>
+    </div>
+  </section>
+
+  <section class="info card">
+    <h2>Kaise kaam karta hai</h2>
+    <ol>
+      <li>Video ki awaaz har second naapi jaati hai aur sabse tez (zordar) hissa chuna jaata hai.</li>
+      <li>Wo hissa browser me hi record hokar chhoti clip ban jaati hai.</li>
+      <li>Caption ke liye speech model browser me chalta hai. Pehli baar ye internet se download hota hai.</li>
+    </ol>
+    <p class="hint">Dhyan do: ye "sabse zyada dekha gaya" nahi, "sabse zordar awaaz wala" hissa dhundta hai, kyunki YouTube ka most replayed data sirf YouTube ke paas hota hai. Video ko YouTube se link se utarna HTML me nahi ho sakta, uske liye server chahiye.</p>
+  </section>
+</main>
+
+<footer>Doosron ke video ka clip upload karne se pehle permission ya credit ka dhyan rakho.</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // Speech model ki library. Agar kabhi load na ho to yahan naya version likh sakte ho.
+  var TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
+
+  // --- pure helpers ---
+  function pad(x, n) { x = String(x); while (x.length < n) x = '0' + x; return x; }
+
+  function bestWindow(loud, n) {
+    var len = loud.length;
+    if (len <= n) return 0;
+    var sum = 0, i;
+    for (i = 0; i < n; i++) sum += loud[i];
+    var best = sum, bi = 0;
+    for (i = n; i < len; i++) {
+      sum += loud[i] - loud[i - n];
+      if (sum > best) { best = sum; bi = i - n + 1; }
+    }
+    return bi;
+  }
+
+  function srtTime(t) {
+    var ms = Math.round(t * 1000);
+    var h = Math.floor(ms / 3600000); ms -= h * 3600000;
+    var m = Math.floor(ms / 60000); ms -= m * 60000;
+    var s = Math.floor(ms / 1000); ms -= s * 1000;
+    return pad(h, 2) + ':' + pad(m, 2) + ':' + pad(s, 2) + ',' + pad(ms, 3);
+  }
+
+  function splitCaption(c, maxChars) {
+    var text = String(c.text || '').trim();
+    if (!text) return [];
+    if (text.length <= maxChars) return [{ start: c.start, end: c.end, text: text }];
+    var words = text.split(/\s+/), pieces = [], cur = '', i;
+    for (i = 0; i < words.length; i++) {
+      if (cur && (cur + ' ' + words[i]).length > maxChars) { pieces.push(cur); cur = words[i]; }
+      else cur = cur ? cur + ' ' + words[i] : words[i];
+    }
+    if (cur) pieces.push(cur);
+    var total = 0;
+    for (i = 0; i < pieces.length; i++) total += pieces[i].length;
+    var out = [], t = c.start, dur = c.end - c.start;
+    for (i = 0; i < pieces.length; i++) {
+      var e = (i === pieces.length - 1) ? c.end : t + dur * pieces[i].length / total;
+      out.push({ start: t, end: e, text: pieces[i] });
+      t = e;
+    }
+    return out;
+  }
+  // --- end helpers ---
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var file = null, fileURL = null, video = null, audioBuf = null;
+  var loud = [], startSec = 0, clipLen = 30, duration = 0;
+  var outURL = null, srtURL = null;
+  var asrCache = { name: null, pipe: null };
+
+  function setErr(t) { $('err').textContent = t || ''; }
+  function status(t) { $('msg').textContent = t; }
+  function bar(p) { $('barfill').style.width = Math.max(0, Math.min(100, p)) + '%'; }
+  function even(x) { x = Math.round(x); return x % 2 ? x + 1 : x; }
+
+  // ---------- file chuna ----------
+  $('file').addEventListener('change', function () {
+    file = this.files && this.files[0] ? this.files[0] : null;
+    setErr('');
+    $('pick').hidden = true;
+    $('result').hidden = true;
+    audioBuf = null;
+    $('fileinfo').textContent = file
+      ? file.name + ' (' + Math.round(file.size / 1048576) + ' MB)'
+      : '';
+  });
+
+  function loadVideo() {
+    return new Promise(function (resolve, reject) {
+      if (fileURL) URL.revokeObjectURL(fileURL);
+      fileURL = URL.createObjectURL(file);
+      var v = document.createElement('video');
+      v.preload = 'auto';
+      v.playsInline = true;
+      v.controls = true;
+      v.src = fileURL;
+      v.onloadedmetadata = function () { resolve(v); };
+      v.onerror = function () { reject(new Error('Ye video browser me khul nahi paaya. MP4 file try karo.')); };
+    });
+  }
+
+  // ---------- awaaz naapna ----------
+  async function analyze() {
+    setErr('');
+    if (!file) { setErr('Pehle video file chuno.'); return; }
+    clipLen = Math.max(5, Math.min(120, parseInt($('len').value, 10) || 30));
+    var btn = $('analyze');
+    btn.disabled = true;
+    btn.textContent = 'Awaaz naap raha hoon...';
+    try {
+      if (file.size > 700 * 1048576) throw new Error('File bahut badi hai. 700 MB se chhoti file chuno.');
+      video = await loadVideo();
+      duration = video.duration;
+      if (!isFinite(duration) || duration <= 0) throw new Error('Video ki lambai padhi nahi ja saki.');
+      if (duration > 30 * 60) throw new Error('Video 30 minute se chhota chuno (browser ki memory ki wajah se).');
+      if (!video.videoWidth) throw new Error('Is file me video nahi mila.');
+      if (clipLen > duration) clipLen = Math.max(1, Math.floor(duration));
+
+      var buf = await file.arrayBuffer();
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      var ac = new Ctx();
+      try {
+        audioBuf = await ac.decodeAudioData(buf);
+      } catch (e) {
+        throw new Error('Is video ki awaaz padhi nahi ja saki. MP4 (H.264) file try karo.');
+      } finally {
+        ac.close();
+      }
+
+      var data = audioBuf.getChannelData(0), sr = audioBuf.sampleRate;
+      var secs = Math.max(1, Math.floor(audioBuf.duration));
+      loud = [];
+      for (var s = 0; s < secs; s++) {
+        var from = s * sr, to = Math.min(data.length, from + sr), sum = 0, cnt = 0;
+        for (var j = from; j < to; j += 4) { sum += data[j] * data[j]; cnt++; }
+        loud.push(Math.sqrt(sum / (cnt || 1)));
+      }
+
+      var maxStart = Math.max(0, Math.floor(duration - clipLen));
+      startSec = Math.min(bestWindow(loud, clipLen), maxStart);
+      var slider = $('start');
+      slider.max = maxStart;
+      slider.value = startSec;
+
+      var stage = $('stage');
+      stage.innerHTML = '';
+      stage.appendChild(video);
+      video.currentTime = startSec;
+
+      $('pick').hidden = false;
+      updatePick();
+      $('pick').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      setErr(e.message || 'Kuch gadbad ho gayi.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sabse zordar hissa dhundo';
+    }
+  }
+
+  function mmss(t) { t = Math.floor(t); return Math.floor(t / 60) + ':' + pad(t % 60, 2); }
+
+  function updatePick() {
+    var end = Math.min(duration, startSec + clipLen);
+    $('pickinfo').textContent = 'Hissa: ' + mmss(startSec) + ' se ' + mmss(end) +
+      ' tak (' + Math.round(end - startSec) + ' second). Graph me gehra hissa chuna gaya hai.';
+    drawGraph();
+  }
+
+  function drawGraph() {
+    var c = $('graph');
+    var w = c.clientWidth || 600, h = 110, dpr = window.devicePixelRatio || 1;
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+    var x = c.getContext('2d');
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.clearRect(0, 0, w, h);
+    var cs = getComputedStyle(document.body);
+    var accent = cs.getPropertyValue('--accent').trim() || '#1f1f1d';
+    var barC = cs.getPropertyValue('--bar').trim() || '#c9c7be';
+    var max = 0, i;
+    for (i = 0; i < loud.length; i++) if (loud[i] > max) max = loud[i];
+    max = max || 1;
+    var bw = w / loud.length;
+    for (i = 0; i < loud.length; i++) {
+      var bh = Math.max(1, loud[i] / max * (h - 4));
+      x.fillStyle = (i >= startSec && i < startSec + clipLen) ? accent : barC;
+      x.fillRect(i * bw, h - bh, Math.max(1, bw - 0.5), bh);
+    }
+  }
+
+  $('start').addEventListener('input', function () {
+    startSec = parseInt(this.value, 10) || 0;
+    if (video) video.currentTime = startSec;
+    updatePick();
+  });
+  window.addEventListener('resize', function () { if (loud.length) drawGraph(); });
+  $('analyze').addEventListener('click', analyze);
+
+  // ---------- caption ----------
+  async function clipAudio(start, end) {
+    var rate = 16000;
+    var oc = new OfflineAudioContext(1, Math.max(1, Math.ceil((end - start) * rate)), rate);
+    var src = oc.createBufferSource();
+    src.buffer = audioBuf;
+    src.connect(oc.destination);
+    src.start(0, start, end - start);
+    var rendered = await oc.startRendering();
+    return rendered.getChannelData(0);
+  }
+
+  async function transcribe(start, end) {
+    var modelName = 'Xenova/whisper-' + $('model').value;
+    status('Speech library load ho rahi hai...');
+    var mod = await import(TRANSFORMERS_URL);
+    if (asrCache.name !== modelName) {
+      status('Speech model download ho raha hai (sirf pehli baar, thoda time lagega)...');
+      asrCache.pipe = await mod.pipeline('automatic-speech-recognition', modelName, {
+        progress_callback: function (p) {
+          if (p && p.status === 'progress' && typeof p.progress === 'number') {
+            status('Speech model download: ' + Math.round(p.progress) + '%');
+            bar(p.progress * 0.4);
+          }
+        }
+      });
+      asrCache.name = modelName;
+    }
+    bar(40);
+    status('Bolne wale shabd sun raha hoon...');
+    var audio = await clipAudio(start, end);
+    var opts = { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5, task: 'transcribe' };
+    var lang = $('lang').value;
+    if (lang) opts.language = lang;
+    var out = await asrCache.pipe(audio, opts);
+    var span = end - start, caps = [];
+    var chunks = (out && out.chunks) ? out.chunks : [];
+    for (var i = 0; i < chunks.length; i++) {
+      var ts = chunks[i].timestamp || [0, null];
+      var s = ts[0] || 0;
+      var e = (ts[1] == null) ? span : ts[1];
+      if (e <= s) e = Math.min(span, s + 2);
+      var parts = splitCaption({ start: s, end: e, text: chunks[i].text }, 42);
+      for (var k = 0; k < parts.length; k++) caps.push(parts[k]);
+    }
+    return caps;
+  }
+
+  // ---------- clip record ----------
+  function pickMime() {
+    var list = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4',
+                'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    if (!window.MediaRecorder) return '';
+    for (var i = 0; i < list.length; i++) {
+      if (MediaRecorder.isTypeSupported(list[i])) return list[i];
+    }
+    return '';
+  }
+
+  function seek(v, t) {
+    return new Promise(function (res) {
+      if (Math.abs(v.currentTime - t) < 0.05) return res();
+      v.addEventListener('seeked', function () { res(); }, { once: true });
+      v.currentTime = t;
+    });
+  }
+
+  function wrapLines(cx, text, maxW) {
+    var words = text.split(/\s+/), lines = [], cur = '';
+    for (var i = 0; i < words.length; i++) {
+      var test = cur ? cur + ' ' + words[i] : words[i];
+      if (cur && cx.measureText(test).width > maxW) { lines.push(cur); cur = words[i]; }
+      else cur = test;
+    }
+    if (cur) lines.push(cur);
+    return lines.slice(0, 3);
+  }
+
+  function drawCaption(cx, text, cw, ch) {
+    var fs = Math.round(ch * 0.045);
+    cx.font = '600 ' + fs + 'px "Noto Sans","Noto Sans Devanagari","Segoe UI",system-ui,sans-serif';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'bottom';
+    var lines = wrapLines(cx, text, cw * 0.88);
+    var lh = fs * 1.25;
+    var y = ch - ch * 0.06 - (lines.length - 1) * lh;
+    cx.lineWidth = fs * 0.18;
+    cx.lineJoin = 'round';
+    cx.strokeStyle = '#000';
+    cx.fillStyle = '#fff';
+    for (var i = 0; i < lines.length; i++) {
+      cx.strokeText(lines[i], cw / 2, y + i * lh);
+      cx.fillText(lines[i], cw / 2, y + i * lh);
+    }
+  }
+
+  function buildSrt(caps) {
+    var out = '';
+    for (var i = 0; i < caps.length; i++) {
+      out += (i + 1) + '\n' + srtTime(caps[i].start) + ' --> ' + srtTime(caps[i].end) + '\n' + caps[i].text + '\n\n';
+    }
+    return out;
+  }
+
+  async function makeClip() {
+    setErr('');
+    var start = startSec;
+    var end = Math.min(duration, start + clipLen);
+    var actual = end - start;
+    var vertical = $('vertical').checked;
+    var wantCaps = $('captions').checked;
+
+    if (!window.MediaRecorder) { setErr('Is browser me clip record nahi ho sakti. Chrome ya Edge use karo.'); return; }
+
+    $('make').disabled = true;
+    $('analyze').disabled = true;
+    $('result').hidden = true;
+    $('pick').hidden = true;
+    $('progress').hidden = false;
+    $('recbox').innerHTML = '';
+    bar(0);
+    $('progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    var caps = [], capNote = '';
+    try {
+      if (wantCaps) {
+        try {
+          caps = await transcribe(start, end);
+          if (!caps.length) capNote = 'Is hisse me bolne wali awaaz nahi mili.';
+        } catch (e) {
+          caps = [];
+          capNote = 'Caption nahi ban paaya (' + (e && e.message ? e.message : 'internet check karo') + '). Clip bina caption ke bani hai.';
+        }
+      }
+
+      status('Clip record ho rahi hai...');
+      bar(45);
+
+      var vw = video.videoWidth, vh = video.videoHeight;
+      var sx = 0, sy = 0, sw = vw, sh = vh;
+      if (vertical) {
+        sw = Math.round(vh * 9 / 16); sh = vh;
+        if (sw > vw) { sw = vw; sh = Math.round(vw * 16 / 9); }
+        sx = Math.round((vw - sw) / 2);
+        sy = Math.round((vh - sh) / 2);
+      }
+      var scale = Math.min(1, 1280 / Math.max(sw, sh));
+      var cw = even(sw * scale), ch = even(sh * scale);
+
+      if (!video._graph) {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        var ac = new Ctx();
+        video._graph = { ac: ac, node: ac.createMediaElementSource(video), dest: ac.createMediaStreamDestination() };
+      }
+      var g = video._graph;
+      await g.ac.resume();
+      try { g.node.disconnect(); } catch (e) { /* koi baat nahi */ }
+      g.node.connect(g.dest);
+
+      var cv = document.createElement('canvas');
+      cv.width = cw; cv.height = ch; cv.className = 'rec';
+      $('recbox').appendChild(cv);
+      var cx = cv.getContext('2d');
+
+      var vs = cv.captureStream(30);
+      var stream = new MediaStream(vs.getVideoTracks().concat(g.dest.stream.getAudioTracks()));
+      var mime = pickMime();
+      var rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4000000 } : {});
+      var chunks = [];
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      var stopped = new Promise(function (res) { rec.onstop = res; });
+
+      video.controls = false;
+      video.muted = false;
+      video.volume = 1;
+      await seek(video, start);
+      cx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
+
+      rec.start(500);
+      try {
+        await video.play();
+      } catch (e) {
+        rec.stop();
+        throw new Error('Browser ne video chalne nahi diya. Page par ek baar click karke dobara try karo.');
+      }
+
+      await new Promise(function (resolve) {
+        function frame() {
+          var t = video.currentTime - start;
+          cx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
+          for (var i = 0; i < caps.length; i++) {
+            if (t >= caps[i].start && t <= caps[i].end) { drawCaption(cx, caps[i].text, cw, ch); break; }
+          }
+          bar(45 + Math.min(1, t / actual) * 55);
+          status('Clip record ho rahi hai: ' + Math.max(0, Math.floor(t)) + ' / ' + Math.floor(actual) + ' second');
+          if (video.currentTime >= end || video.ended) { resolve(); return; }
+          requestAnimationFrame(frame);
+        }
+        frame();
+      });
+
+      video.pause();
+      rec.stop();
+      await stopped;
+      video.controls = true;
+      try { g.node.disconnect(); g.node.connect(g.ac.destination); } catch (e) { /* koi baat nahi */ }
+
+      var type = (mime || 'video/webm').split(';')[0];
+      var blob = new Blob(chunks, { type: type });
+      if (outURL) URL.revokeObjectURL(outURL);
+      outURL = URL.createObjectURL(blob);
+      var ext = type.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+
+      var ov = $('outvideo');
+      ov.src = outURL;
+      var dl = $('dl-video');
+      dl.href = outURL;
+      dl.download = 'highlight.' + ext;
+
+      var srtBtn = $('dl-srt');
+      if (srtURL) { URL.revokeObjectURL(srtURL); srtURL = null; }
+      if (caps.length) {
+        srtURL = URL.createObjectURL(new Blob([buildSrt(caps)], { type: 'text/plain;charset=utf-8' }));
+        srtBtn.href = srtURL;
+        srtBtn.download = 'highlight.srt';
+        srtBtn.hidden = false;
+      } else {
+        srtBtn.hidden = true;
+      }
+
+      $('note').textContent = mmss(start) + ' se ' + mmss(end) + ' tak (sabse zordar awaaz wala hissa)' +
+        (capNote ? '. ' + capNote : '');
+      $('progress').hidden = true;
+      $('result').hidden = false;
+      $('pick').hidden = false;
+      $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      $('progress').hidden = true;
+      $('pick').hidden = false;
+      setErr(e.message || 'Clip nahi ban paayi.');
+    } finally {
+      $('make').disabled = false;
+      $('analyze').disabled = false;
+    }
+  }
+
+  $('make').addEventListener('click', makeClip);
+})();
+</script>
+</body>
+</html>
